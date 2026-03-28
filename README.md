@@ -21,6 +21,11 @@ The plugin also supports:
 - Custom customer notices.
 - Optional debug logging.
 
+## Requirements
+
+- WooCommerce must be installed and active.
+- This plugin will not activate unless WooCommerce is active.
+
 ## Important Behavior Notes
 
 - One product means one cart line item, not quantity.
@@ -49,7 +54,7 @@ Primary enforcement includes:
 
 - Slug: single-product-cart-restriction
 - Text domain: single-product-cart-restriction
-- Author: webphics
+- Author: Webphics
 - Author website: https://www.webphics.com/
 
 ## Notes For Developers

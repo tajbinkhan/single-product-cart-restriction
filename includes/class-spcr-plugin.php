@@ -14,6 +14,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class SPCR_Plugin {
 	/**
+	 * WooCommerce plugin file path.
+	 */
+	private const WOOCOMMERCE_PLUGIN_FILE = 'woocommerce/woocommerce.php';
+
+	/**
 	 * Admin settings service.
 	 *
 	 * @var SPCR_Admin|null
@@ -64,7 +69,7 @@ class SPCR_Plugin {
 	 * Whether WooCommerce is active.
 	 */
 	public function is_woocommerce_active(): bool {
-		return class_exists( 'WooCommerce' ) && function_exists( 'WC' );
+		return self::is_woocommerce_dependency_active();
 	}
 
 	/**
@@ -80,7 +85,7 @@ class SPCR_Plugin {
 		}
 
 		echo '<div class="notice notice-warning"><p>';
-		echo esc_html__( 'Single Product Cart Restriction requires WooCommerce to be active.', 'single-product-cart-restriction' );
+		echo esc_html__( 'Single Product Cart Restriction requires WooCommerce to be installed and active.', 'single-product-cart-restriction' );
 		echo '</p></div>';
 	}
 
@@ -106,6 +111,14 @@ class SPCR_Plugin {
 	 * Activation hook.
 	 */
 	public static function activate(): void {
+		if ( ! self::is_woocommerce_dependency_active() ) {
+			wp_die(
+				esc_html__( 'Single Product Cart Restriction cannot be activated because WooCommerce is not active. Please install and activate WooCommerce first.', 'single-product-cart-restriction' ),
+				esc_html__( 'Plugin dependency check', 'single-product-cart-restriction' ),
+				array( 'back_link' => true )
+			);
+		}
+
 		$defaults = spcr_get_default_settings();
 
 		foreach ( $defaults as $key => $value ) {
@@ -131,5 +144,24 @@ class SPCR_Plugin {
 		foreach ( array_keys( $defaults ) as $option_name ) {
 			delete_option( $option_name );
 		}
+	}
+
+	/**
+	 * Checks whether WooCommerce plugin dependency is active.
+	 */
+	private static function is_woocommerce_dependency_active(): bool {
+		if ( class_exists( 'WooCommerce' ) && function_exists( 'WC' ) ) {
+			return true;
+		}
+
+		if ( ! function_exists( 'is_plugin_active' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		if ( function_exists( 'is_plugin_active' ) && is_plugin_active( self::WOOCOMMERCE_PLUGIN_FILE ) ) {
+			return true;
+		}
+
+		return is_multisite() && function_exists( 'is_plugin_active_for_network' ) && is_plugin_active_for_network( self::WOOCOMMERCE_PLUGIN_FILE );
 	}
 }

@@ -4,7 +4,7 @@
  * Plugin URI: https://www.webphics.com/
  * Description: Restrict WooCommerce carts to a single product line item with block or replace behavior.
  * Version: 1.0.0
- * Author: webphics
+ * Author: Webphics
  * Author URI: https://www.webphics.com/
  * Text Domain: single-product-cart-restriction
  * Domain Path: /languages
