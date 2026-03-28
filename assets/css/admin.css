@@ -1,0 +1,7 @@
+.woocommerce_page_wc-settings tr.spcr-mode-replace .titledesc label {
+	font-weight: 600;
+}
+
+.woocommerce_page_wc-settings .spcr-muted {
+	opacity: 0.75;
+}

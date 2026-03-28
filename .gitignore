@@ -1,0 +1,33 @@
+# Ignore general development and environment artifacts
+.DS_Store
+node_modules/
+vendor/
+*.log
+*.sql
+.env
+.htaccess
+
+# WordPress specific files to ignore within a plugin directory
+# Ignore plugin-specific cache/temp files and logs
+/cache/
+/logs/
+/tmp/
+
+# Ignore bundled libraries that are better managed by Composer/NPM in a project-level .gitignore
+# You might want to remove these lines if you are including libraries within your plugin repo
+# vendor/
+# node_modules/
+
+# Exclude generated files like minified CSS/JS if source files are included
+*.min.css
+*.min.js
+# Exception for minified files if they are the source and not generated in build step, e.g. third-party libs
+#!js/third-party/*.min.js
+
+# Files and directories specific to your build process (if any)
+/build/
+/dist/
+
+# Configuration files from other tools, e.g., testing
+phpunit.xml
+codeception.yml
