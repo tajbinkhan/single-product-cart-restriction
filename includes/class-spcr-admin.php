@@ -30,6 +30,9 @@ class SPCR_Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
 		add_filter( 'woocommerce_admin_settings_sanitize_option_spcr_enabled', array( $this, 'sanitize_yes_no' ), 10, 3 );
+		add_filter( 'woocommerce_admin_settings_sanitize_option_spcr_bypass_cart', array( $this, 'sanitize_yes_no' ), 10, 3 );
+		add_filter( 'woocommerce_admin_settings_sanitize_option_spcr_hide_action_messages', array( $this, 'sanitize_yes_no' ), 10, 3 );
+		add_filter( 'woocommerce_admin_settings_sanitize_option_spcr_hide_cart_quantity', array( $this, 'sanitize_yes_no' ), 10, 3 );
 		add_filter( 'woocommerce_admin_settings_sanitize_option_spcr_force_quantity_one', array( $this, 'sanitize_yes_no' ), 10, 3 );
 		add_filter( 'woocommerce_admin_settings_sanitize_option_spcr_bypass_admin_shop_manager', array( $this, 'sanitize_yes_no' ), 10, 3 );
 		add_filter( 'woocommerce_admin_settings_sanitize_option_spcr_debug_mode', array( $this, 'sanitize_yes_no' ), 10, 3 );
@@ -118,11 +121,32 @@ class SPCR_Admin {
 				'desc_tip' => true,
 			),
 			array(
+				'title'   => esc_html__( 'Bypass cart and go to checkout', 'single-product-cart-restriction' ),
+				'id'      => 'spcr_bypass_cart',
+				'type'    => 'checkbox',
+				'default' => 'no',
+				'desc'    => esc_html__( 'After a successful add-to-cart for restricted products, send customers to checkout immediately and redirect cart-page visits to the shop page.', 'single-product-cart-restriction' ),
+			),
+			array(
 				'title'   => esc_html__( 'Force quantity to 1', 'single-product-cart-restriction' ),
 				'id'      => 'spcr_force_quantity_one',
 				'type'    => 'checkbox',
 				'default' => 'no',
 				'desc'    => esc_html__( 'Cap the cart quantity at 1 for restricted products.', 'single-product-cart-restriction' ),
+			),
+			array(
+				'title'   => esc_html__( 'Hide action messages', 'single-product-cart-restriction' ),
+				'id'      => 'spcr_hide_action_messages',
+				'type'    => 'checkbox',
+				'default' => 'no',
+				'desc'    => esc_html__( 'Hide WooCommerce add-to-cart messages and this plugin\'s success/notice messages for restricted products. Restriction errors still display.', 'single-product-cart-restriction' ),
+			),
+			array(
+				'title'   => esc_html__( 'Hide cart quantity column', 'single-product-cart-restriction' ),
+				'id'      => 'spcr_hide_cart_quantity',
+				'type'    => 'checkbox',
+				'default' => 'no',
+				'desc'    => esc_html__( 'Hide the cart-page quantity column and Update cart button when the cart contains at least one restricted product.', 'single-product-cart-restriction' ),
 			),
 			array(
 				'title'       => esc_html__( 'Custom notice message', 'single-product-cart-restriction' ),

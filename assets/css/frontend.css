@@ -1,0 +1,8 @@
+.woocommerce-cart table.shop_table_responsive.cart th.product-quantity,
+.woocommerce-cart table.shop_table_responsive.cart td.product-quantity {
+	display: none;
+}
+
+.woocommerce-cart .woocommerce-cart-form button[name="update_cart"] {
+	display: none;
+}

@@ -39,11 +39,153 @@ class SPCR_Cart_Restrictions {
 	 */
 	public function __construct() {
 		add_filter( 'woocommerce_add_to_cart_validation', array( $this, 'validate_add_to_cart' ), 20, 6 );
+		add_filter( 'woocommerce_add_to_cart_redirect', array( $this, 'handle_add_to_cart_redirect' ), 20, 2 );
+		add_filter( 'wc_add_to_cart_message_html', array( $this, 'filter_add_to_cart_message_html' ), 20, 3 );
+		add_filter( 'woocommerce_loop_add_to_cart_link', array( $this, 'mark_loop_add_to_cart_link' ), 20, 3 );
+		add_filter( 'woocommerce_cart_item_quantity', array( $this, 'filter_cart_item_quantity' ), 20, 3 );
 		add_action( 'woocommerce_add_to_cart', array( $this, 'after_add_to_cart' ), 20, 6 );
 		add_filter( 'woocommerce_update_cart_validation', array( $this, 'validate_cart_update' ), 20, 4 );
 		add_action( 'woocommerce_cart_item_set_quantity', array( $this, 'enforce_quantity_when_set' ), 20, 3 );
 		add_action( 'woocommerce_before_calculate_totals', array( $this, 'enforce_cart_state' ), 20 );
 		add_action( 'woocommerce_cart_loaded_from_session', array( $this, 'enforce_cart_state' ), 20 );
+		add_action( 'template_redirect', array( $this, 'redirect_cart_page_to_shop' ), 20 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ), 20 );
+	}
+
+	/**
+	 * Redirects successful add-to-cart requests to checkout when enabled.
+	 *
+	 * @param mixed $url Existing redirect URL.
+	 * @param mixed $product Product being added to the cart.
+	 *
+	 * @return mixed
+	 */
+	public function handle_add_to_cart_redirect( $url, $product ) {
+		if ( ! $this->is_bypass_cart_enabled() || ! $product instanceof WC_Product ) {
+			return $url;
+		}
+
+		$product_ids = $this->resolve_request_product_ids( $product );
+
+		if ( ! $this->should_apply_to_product( $product_ids['product_id'], $product_ids['variation_id'], 'add_to_cart_redirect' ) ) {
+			return $url;
+		}
+
+		return wc_get_checkout_url();
+	}
+
+	/**
+	 * Hides WooCommerce add-to-cart messages for restricted products when enabled.
+	 *
+	 * @param string               $message Existing message HTML.
+	 * @param array<int, int|float> $products Added products keyed by product ID.
+	 * @param bool                 $show_qty Whether quantity is displayed in the message.
+	 */
+	public function filter_add_to_cart_message_html( string $message, array $products, bool $show_qty ): string {
+		unset( $show_qty );
+
+		if ( ! $this->should_suppress_action_messages() ) {
+			return $message;
+		}
+
+		foreach ( array_keys( $products ) as $product_or_variation_id ) {
+			$product_ids = $this->resolve_product_ids( absint( $product_or_variation_id ) );
+
+			if ( $this->should_apply_to_product( $product_ids['product_id'], $product_ids['variation_id'], 'add_to_cart_message' ) ) {
+				return '';
+			}
+		}
+
+		return $message;
+	}
+
+	/**
+	 * Marks loop add-to-cart links that should bypass the cart via AJAX.
+	 *
+	 * @param string $html Existing link HTML.
+	 * @param mixed  $product Product object.
+	 * @param array  $args Template args.
+	 */
+	public function mark_loop_add_to_cart_link( string $html, $product, array $args ): string {
+		unset( $args );
+
+		if ( ! $this->is_bypass_cart_enabled() || ! $product instanceof WC_Product ) {
+			return $html;
+		}
+
+		$product_id   = $product->is_type( 'variation' ) ? absint( $product->get_parent_id() ) : absint( $product->get_id() );
+		$variation_id = $product->is_type( 'variation' ) ? absint( $product->get_id() ) : 0;
+
+		if ( ! $this->should_apply_to_product( $product_id, $variation_id, 'loop_add_to_cart_link' ) ) {
+			return $html;
+		}
+
+		if ( false !== strpos( $html, 'data-spcr-bypass-cart=' ) ) {
+			return $html;
+		}
+
+		$updated_html = preg_replace( '/<a\b/', '<a data-spcr-bypass-cart="yes"', $html, 1 );
+
+		return is_string( $updated_html ) ? $updated_html : $html;
+	}
+
+	/**
+	 * Removes editable cart quantity markup when enabled for the current cart.
+	 *
+	 * @param mixed  $product_quantity Existing quantity markup.
+	 * @param string $cart_item_key Cart item key.
+	 * @param array  $cart_item Cart item data.
+	 *
+	 * @return mixed
+	 */
+	public function filter_cart_item_quantity( $product_quantity, string $cart_item_key, array $cart_item ) {
+		unset( $cart_item_key, $cart_item );
+
+		if ( ! $this->should_hide_cart_quantity_for_current_cart() ) {
+			return $product_quantity;
+		}
+
+		return '';
+	}
+
+	/**
+	 * Redirects cart page visits to the shop page when cart bypass is enabled.
+	 */
+	public function redirect_cart_page_to_shop(): void {
+		if ( is_admin() || wp_doing_ajax() || ! $this->is_bypass_cart_enabled() || $this->current_user_can_bypass() ) {
+			return;
+		}
+
+		if ( ! function_exists( 'is_cart' ) || ! is_cart() ) {
+			return;
+		}
+
+		wp_safe_redirect( wc_get_page_permalink( 'shop' ) );
+		exit;
+	}
+
+	/**
+	 * Enqueues frontend assets for checkout bypass and cart quantity controls.
+	 */
+	public function enqueue_frontend_assets(): void {
+		if ( is_admin() ) {
+			return;
+		}
+
+		if ( $this->is_bypass_cart_enabled() && ! $this->current_user_can_bypass() ) {
+			wp_enqueue_script( 'spcr-frontend', SPCR_PLUGIN_URL . 'assets/js/frontend.js', array( 'jquery' ), SPCR_VERSION, true );
+			wp_localize_script(
+				'spcr-frontend',
+				'spcrFrontend',
+				array(
+					'checkoutUrl' => wc_get_checkout_url(),
+				)
+			);
+		}
+
+		if ( $this->should_hide_cart_quantity_for_current_cart() ) {
+			wp_enqueue_style( 'spcr-frontend-cart', SPCR_PLUGIN_URL . 'assets/css/frontend.css', array(), SPCR_VERSION );
+		}
 	}
 
 	/**
@@ -605,6 +747,10 @@ class SPCR_Cart_Restrictions {
 			$type = 'notice';
 		}
 
+		if ( in_array( $type, array( 'success', 'notice' ), true ) && $this->should_suppress_action_messages() ) {
+			return;
+		}
+
 		wc_add_notice( $message, $type );
 	}
 
@@ -643,6 +789,65 @@ class SPCR_Cart_Restrictions {
 	}
 
 	/**
+	 * Resolves product and variation IDs for the current add-to-cart request.
+	 *
+	 * @param WC_Product $product Product object from WooCommerce.
+	 *
+	 * @return array<string, int>
+	 */
+	private function resolve_request_product_ids( WC_Product $product ): array {
+		$product_id   = absint( $product->get_id() );
+		$variation_id = $product->is_type( 'variation' ) ? $product_id : 0;
+
+		if ( $variation_id > 0 ) {
+			$product_id = absint( $product->get_parent_id() );
+		}
+
+		$requested_product_id   = isset( $_REQUEST['add-to-cart'] ) ? absint( wp_unslash( $_REQUEST['add-to-cart'] ) ) : 0;
+		$requested_variation_id = isset( $_REQUEST['variation_id'] ) ? absint( wp_unslash( $_REQUEST['variation_id'] ) ) : 0;
+
+		if ( $requested_product_id > 0 && 0 === $product_id ) {
+			$product_id = $requested_product_id;
+		}
+
+		if ( $requested_variation_id > 0 ) {
+			$variation_id = $requested_variation_id;
+		}
+
+		if ( $variation_id > 0 && $product_id <= 0 ) {
+			$product_id = absint( wp_get_post_parent_id( $variation_id ) );
+		}
+
+		return array(
+			'product_id'   => $product_id,
+			'variation_id' => $variation_id,
+		);
+	}
+
+	/**
+	 * Resolves a product or variation ID into restriction scope IDs.
+	 *
+	 * @param int $product_or_variation_id Product or variation ID.
+	 *
+	 * @return array<string, int>
+	 */
+	private function resolve_product_ids( int $product_or_variation_id ): array {
+		$product_id   = absint( $product_or_variation_id );
+		$variation_id = 0;
+		$product      = $product_id > 0 ? wc_get_product( $product_id ) : false;
+
+		if ( $product instanceof WC_Product && $product->is_type( 'variation' ) ) {
+			$variation_id = $product_id;
+			$product_id   = absint( $product->get_parent_id() );
+		}
+
+		return array(
+			'product_id'   => $product_id,
+			'variation_id' => $variation_id,
+		);
+	}
+
+	/**
 	 * Returns unique identity for product comparison.
 	 */
 	private function get_identity( int $product_id, int $variation_id ): string {
@@ -655,6 +860,27 @@ class SPCR_Cart_Restrictions {
 	 */
 	private function is_enabled(): bool {
 		return spcr_is_yes_option( 'spcr_enabled' );
+	}
+
+	/**
+	 * Whether add-to-cart should bypass the cart page.
+	 */
+	private function is_bypass_cart_enabled(): bool {
+		return $this->is_enabled() && spcr_is_yes_option( 'spcr_bypass_cart' );
+	}
+
+	/**
+	 * Whether success and informational action messages should be hidden.
+	 */
+	private function is_hide_action_messages_enabled(): bool {
+		return $this->is_enabled() && spcr_is_yes_option( 'spcr_hide_action_messages' );
+	}
+
+	/**
+	 * Whether cart quantity controls should be hidden.
+	 */
+	private function is_hide_cart_quantity_enabled(): bool {
+		return $this->is_enabled() && spcr_is_yes_option( 'spcr_hide_cart_quantity' );
 	}
 
 	/**
@@ -680,6 +906,46 @@ class SPCR_Cart_Restrictions {
 		}
 
 		return current_user_can( 'manage_woocommerce' ) || current_user_can( 'manage_options' );
+	}
+
+	/**
+	 * Whether action messages should be suppressed for the current request.
+	 */
+	private function should_suppress_action_messages(): bool {
+		return $this->is_hide_action_messages_enabled() && ! $this->current_user_can_bypass();
+	}
+
+	/**
+	 * Whether the current cart page should hide quantity controls.
+	 */
+	private function should_hide_cart_quantity_for_current_cart(): bool {
+		if ( ! $this->is_hide_cart_quantity_enabled() || $this->current_user_can_bypass() || ! $this->has_cart() || ! $this->is_classic_cart_page() ) {
+			return false;
+		}
+
+		return ! empty( $this->get_scoped_cart_items( WC()->cart ) );
+	}
+
+	/**
+	 * Whether the current cart page uses the classic cart template.
+	 */
+	private function is_classic_cart_page(): bool {
+		if ( ! function_exists( 'is_cart' ) || ! is_cart() ) {
+			return false;
+		}
+
+		if ( ! function_exists( 'has_block' ) || ! function_exists( 'wc_get_page_id' ) ) {
+			return true;
+		}
+
+		$cart_page_id = absint( wc_get_page_id( 'cart' ) );
+		if ( $cart_page_id <= 0 ) {
+			return true;
+		}
+
+		$cart_page = get_post( $cart_page_id );
+
+		return ! ( $cart_page instanceof WP_Post ) || ! has_block( 'woocommerce/cart', $cart_page );
 	}
 
 	/**

@@ -18,6 +18,9 @@ function spcr_get_default_settings(): array {
 	return array(
 		'spcr_enabled'                   => 'no',
 		'spcr_mode'                      => 'block',
+		'spcr_bypass_cart'               => 'no',
+		'spcr_hide_action_messages'      => 'no',
+		'spcr_hide_cart_quantity'        => 'no',
 		'spcr_force_quantity_one'        => 'no',
 		'spcr_custom_notice'             => '',
 		'spcr_excluded_products'         => array(),

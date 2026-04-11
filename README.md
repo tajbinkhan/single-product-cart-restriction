@@ -13,6 +13,10 @@ It supports two behaviors:
 
 The plugin also supports:
 
+- Optional cart bypass straight to checkout for restricted products.
+- Optional redirect from the cart page to the selected shop page.
+- Optional hiding of add-to-cart and plugin action messages.
+- Optional hiding of the cart quantity column and Update cart button.
 - Optional quantity cap of 1.
 - Excluding specific products.
 - Excluding specific categories.
@@ -30,6 +34,10 @@ The plugin also supports:
 
 - One product means one cart line item, not quantity.
 - In Block mode, adding the same product again is allowed when force quantity is disabled.
+- If cart bypass is enabled, successful restricted add-to-cart requests go directly to checkout.
+- If cart bypass is enabled, direct visits to the cart page redirect to the WooCommerce shop page.
+- If action-message hiding is enabled, WooCommerce add-to-cart messages and the plugin's success/info notices are suppressed for restricted products.
+- If cart quantity hiding is enabled, the classic cart page hides the quantity column when at least one restricted product is in the cart.
 - If force quantity is enabled, quantity is capped at 1 during add-to-cart and cart updates.
 - Exclusions take precedence over restrict-only category targeting.
 
